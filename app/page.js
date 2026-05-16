@@ -26,6 +26,7 @@ const T = {
 };
 
 function roleText(role){ return role==="owner"?T.roleOwner:role==="admin"?T.roleAdmin:T.roleUser; }
+function safeFileName(name){ return name.replace(/[^\w.\-]+/g,"_"); }
 function Avatar({url, small=false, big=false}){ return <div className={`avatar ${small?"small":""} ${big?"big":""}`}>{url?<img src={url} alt="avatar"/>:null}</div>; }
 function Pill({children, tone=""}){ return <span className={`pill ${tone}`}>{children}</span>; }
 
@@ -85,7 +86,14 @@ export default function Page(){
   async function loadLikes(){ const {data}=await supabase.from("post_likes").select("*"); if(data)setLikes(data); }
   async function loadGroups(){ const {data}=await supabase.from("groups").select("*").order("created_at",{ascending:false}); if(data)setGroups(data); }
 
-  async function upload(bucket,file){ if(!file)return null; const path=`${profile?.id||session?.user?.id}/${Date.now()}-${file.name}`; const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:true}); if(error)throw error; return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl; }
+  async function upload(bucket,file){
+    const uid=profile?.id||session?.user?.id;
+    if(!file||!uid)return null;
+    const path=`${uid}/${Date.now()}-${safeFileName(file.name)}`;
+    const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:false});
+    if(error)throw error;
+    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  }
   async function getNextId(){ const {data,error}=await supabase.rpc("next_numeric_id"); return error ? String(Date.now()).slice(-6) : data; }
 
   async function signUp(){
@@ -99,14 +107,18 @@ export default function Page(){
     if(error) return setNotice(error.message);
     if(!data.user) return setNotice("请先去邮箱确认。");
     if(!data.session) return setNotice("注册成功，请先去邮箱确认，然后回来登录。");
-    const avatar_url=auth.avatar?await uploadFileAs(data.user.id,"avatars",auth.avatar):null;
-    if(avatar_url){
-      const {error:pe}=await supabase.from("profiles").update({avatar_url}).eq("id",data.user.id);
-      if(pe)return setNotice(pe.message);
+    try{
+      const avatar_url=auth.avatar?await uploadFileAs(data.user.id,"avatars",auth.avatar):null;
+      if(avatar_url){
+        const {error:pe}=await supabase.from("profiles").update({avatar_url}).eq("id",data.user.id);
+        if(pe)return setNotice(pe.message);
+      }
+    }catch(error){
+      return setNotice(error.message||"头像上传失败，请登录后在我的页面重新上传。");
     }
     boot(data.user.id);
   }
-  async function uploadFileAs(uid,bucket,file){ const path=`${uid}/${Date.now()}-${file.name}`; const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:true}); if(error)throw error; return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl; }
+  async function uploadFileAs(uid,bucket,file){ const path=`${uid}/${Date.now()}-${safeFileName(file.name)}`; const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:false}); if(error)throw error; return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl; }
   async function signIn(){ const {error}=await supabase.auth.signInWithPassword({email:auth.email,password:auth.password}); if(error)setNotice(error.message); }
   async function signOut(){ await supabase.auth.signOut(); }
 
@@ -120,11 +132,18 @@ export default function Page(){
 
   async function submitPost(){
     if(!post.body.trim()) return;
-    const image_url=post.image?await upload("post-images",post.image):null;
-    const row={author_id:profile.id,target:post.target,body:post.body,anonymous:post.anonymous,status:"pending",image_url};
-    if(!post.anonymous){ row.public_author_name=profile.display_name; row.public_author_avatar=profile.avatar_url; }
-    const {error}=await supabase.from("posts").insert(row);
-    if(error)setNotice(error.message); else {setPost({target:"",body:"",anonymous:true,image:null});setNotice("已提交审核。");loadPosts();}
+    try{
+      const image_url=post.image?await upload("post-images",post.image):null;
+      const row={author_id:profile.id,target:post.target,body:post.body,anonymous:post.anonymous,status:"pending",image_url};
+      if(!post.anonymous){ row.public_author_name=profile.display_name; row.public_author_avatar=profile.avatar_url; }
+      const {error}=await supabase.from("posts").insert(row);
+      if(error)return setNotice(error.message);
+      setPost({target:"",body:"",anonymous:true,image:null});
+      setNotice("已提交审核。");
+      loadPosts();
+    }catch(error){
+      setNotice(error.message||"投稿失败。");
+    }
   }
   async function approve(id){ await supabase.from("posts").update({status:"approved"}).eq("id",id); loadPosts(); }
   async function delPost(id){ await supabase.from("posts").update({status:"deleted"}).eq("id",id); loadPosts(); }
@@ -135,24 +154,37 @@ export default function Page(){
   async function addFriendById(id=friendId){
     const target=profiles.find(p=>p.numeric_id===id.trim());
     if(!target||target.id===profile.id) return setNotice("没有找到这个数字 ID。");
-    await supabase.from("friendships").insert({user_id:profile.id,friend_id:target.id});
-    await supabase.from("friendships").insert({user_id:target.id,friend_id:profile.id});
-    setSelectedChat(target.id); setChatOpen(true); setFriendId(""); loadFriends();
+    const exists=friends.some(f=>(f.user_id===profile.id&&f.friend_id===target.id)||(f.user_id===target.id&&f.friend_id===profile.id));
+    if(!exists){
+      const {error}=await supabase.from("friendships").insert({user_id:profile.id,friend_id:target.id});
+      if(error)return setNotice(error.message);
+    }
+    setSelectedChat(target.id); setChatOpen(true); setFriendId(""); await loadFriends();
   }
   async function sendMessage({receiver=selectedChat,body=null,postId=null,profileId=null,game=null,groupId=null}={}){
     const text=body??chatRef.current?.value?.trim();
     if(!text&&!postId&&!profileId&&!game)return;
-    await supabase.from("private_messages").insert({sender_id:profile.id,receiver_id:groupId?null:receiver,group_id:groupId||null,body:text||"",shared_post_id:postId,shared_profile_id:profileId,game_invite:game});
-    if(chatRef.current&&!body)chatRef.current.value=""; loadMessages();
+    if(!groupId&&!receiver)return setNotice("请先选择一个聊天对象。");
+    const {error}=await supabase.from("private_messages").insert({sender_id:profile.id,receiver_id:groupId?null:receiver,group_id:groupId||null,body:text||"",shared_post_id:postId,shared_profile_id:profileId,game_invite:game});
+    if(error)return setNotice(error.message);
+    if(chatRef.current&&!body)chatRef.current.value="";
+    setNotice("");
+    await loadMessages();
   }
   async function shareToFriend(fid,p){ await sendMessage({receiver:fid,body:"转发了一条表白墙内容",postId:p.id}); await supabase.from("posts").update({share_count:(p.share_count||0)+1}).eq("id",p.id); setSharePost(null); loadPosts(); }
   async function recommendFriend(toId,friend){ await sendMessage({receiver:toId,body:`推荐好友：${friend.display_name}，数字ID：${friend.numeric_id}`,profileId:friend.id}); }
 
   async function saveProfile(){
-    const avatar_url=edit.avatar?await upload("avatars",edit.avatar):profile.avatar_url;
-    const background_url=edit.bg?await upload("backgrounds",edit.bg):profile.background_url;
-    const {error}=await supabase.from("profiles").update({display_name:edit.displayName,avatar_url,background_url}).eq("id",profile.id);
-    if(error)setNotice(error.message); else {setNotice("资料已保存。"); boot(profile.id);}
+    try{
+      const avatar_url=edit.avatar?await upload("avatars",edit.avatar):profile.avatar_url;
+      const background_url=edit.bg?await upload("backgrounds",edit.bg):profile.background_url;
+      const {error}=await supabase.from("profiles").update({display_name:edit.displayName,avatar_url,background_url}).eq("id",profile.id);
+      if(error)return setNotice(error.message);
+      setNotice("资料已保存。");
+      await boot(profile.id);
+    }catch(error){
+      setNotice(error.message||"资料保存失败。");
+    }
   }
   async function ownerSetNumericId(u,newId){ if(!isOwner)return; await supabase.from("profiles").update({numeric_id:newId}).eq("id",u.id); loadProfiles(); }
   async function setRole(u,role){ if(!isOwner)return; await supabase.from("profiles").update({role}).eq("id",u.id); loadProfiles(); }

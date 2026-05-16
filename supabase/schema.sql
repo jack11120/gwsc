@@ -236,4 +236,9 @@ with check (bucket_id in ('avatars','post-images','backgrounds') and auth.uid():
 
 drop policy if exists "storage_update_own" on storage.objects;
 create policy "storage_update_own" on storage.objects for update
+using (bucket_id in ('avatars','post-images','backgrounds') and auth.uid()::text = (storage.foldername(name))[1])
+with check (bucket_id in ('avatars','post-images','backgrounds') and auth.uid()::text = (storage.foldername(name))[1]);
+
+drop policy if exists "storage_delete_own" on storage.objects;
+create policy "storage_delete_own" on storage.objects for delete
 using (bucket_id in ('avatars','post-images','backgrounds') and auth.uid()::text = (storage.foldername(name))[1]);
