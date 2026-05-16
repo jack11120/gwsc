@@ -134,9 +134,12 @@ export default function Page(){
     if(!post.body.trim()) return;
     try{
       const image_url=post.image?await upload("post-images",post.image):null;
-      const row={author_id:profile.id,target:post.target,body:post.body,anonymous:post.anonymous,status:"pending",image_url};
-      if(!post.anonymous){ row.public_author_name=profile.display_name; row.public_author_avatar=profile.avatar_url; }
-      const {error}=await supabase.from("posts").insert(row);
+      const {error}=await supabase.rpc("create_post",{
+        p_target:post.target,
+        p_body:post.body,
+        p_anonymous:post.anonymous,
+        p_image_url:image_url
+      });
       if(error)return setNotice(error.message);
       setPost({target:"",body:"",anonymous:true,image:null});
       setNotice("已提交审核。");
@@ -165,7 +168,14 @@ export default function Page(){
     const text=body??chatRef.current?.value?.trim();
     if(!text&&!postId&&!profileId&&!game)return;
     if(!groupId&&!receiver)return setNotice("请先选择一个聊天对象。");
-    const {error}=await supabase.from("private_messages").insert({sender_id:profile.id,receiver_id:groupId?null:receiver,group_id:groupId||null,body:text||"",shared_post_id:postId,shared_profile_id:profileId,game_invite:game});
+    const {error}=await supabase.rpc("send_private_message",{
+      p_receiver_id:groupId?null:receiver,
+      p_body:text||"",
+      p_shared_post_id:postId||null,
+      p_shared_profile_id:profileId||null,
+      p_game_invite:game||null,
+      p_group_id:groupId||null
+    });
     if(error)return setNotice(error.message);
     if(chatRef.current&&!body)chatRef.current.value="";
     setNotice("");
@@ -186,7 +196,13 @@ export default function Page(){
       setNotice(error.message||"资料保存失败。");
     }
   }
-  async function ownerSetNumericId(u,newId){ if(!isOwner)return; await supabase.from("profiles").update({numeric_id:newId}).eq("id",u.id); loadProfiles(); }
+  async function ownerSetNumericId(u,newId){
+    if(!isOwner)return;
+    const {error}=await supabase.rpc("owner_set_numeric_id",{p_user_id:u.id,p_numeric_id:newId});
+    if(error)return setNotice(error.message);
+    setNotice("数字 ID 已更新。");
+    loadProfiles();
+  }
   async function setRole(u,role){ if(!isOwner)return; await supabase.from("profiles").update({role}).eq("id",u.id); loadProfiles(); }
   async function block(u,b=!u.blocked){ if(u.role==="owner")return setNotice("管理员不能踢群主。"); await supabase.from("profiles").update({blocked:b}).eq("id",u.id); loadProfiles(); }
   async function bonus(u){ await supabase.from("profiles").update({extra_comments:(u.extra_comments||0)+1}).eq("id",u.id); loadProfiles(); }

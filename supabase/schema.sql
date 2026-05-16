@@ -139,6 +139,160 @@ for each row execute function public.handle_new_user();
 
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
+create or replace function public.create_post(
+  p_target text,
+  p_body text,
+  p_anonymous boolean,
+  p_image_url text
+)
+returns public.posts
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me public.profiles;
+  created_post public.posts;
+begin
+  if auth.uid() is null then
+    raise exception '请先登录。';
+  end if;
+
+  select * into me from public.profiles where id = auth.uid();
+  if me.id is null then
+    raise exception '用户资料不存在，请重新登录。';
+  end if;
+  if me.blocked then
+    raise exception '你已被限制发帖。';
+  end if;
+  if nullif(trim(p_body), '') is null then
+    raise exception '内容不能为空。';
+  end if;
+
+  insert into public.posts (
+    author_id,
+    target,
+    body,
+    anonymous,
+    status,
+    public_author_name,
+    public_author_avatar,
+    image_url
+  )
+  values (
+    me.id,
+    nullif(trim(p_target), ''),
+    trim(p_body),
+    coalesce(p_anonymous, true),
+    'pending',
+    case when coalesce(p_anonymous, true) then null else me.display_name end,
+    case when coalesce(p_anonymous, true) then null else me.avatar_url end,
+    p_image_url
+  )
+  returning * into created_post;
+
+  return created_post;
+end;
+$$;
+
+create or replace function public.send_private_message(
+  p_receiver_id uuid,
+  p_body text,
+  p_shared_post_id uuid default null,
+  p_shared_profile_id uuid default null,
+  p_game_invite text default null,
+  p_group_id uuid default null
+)
+returns public.private_messages
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  sender_profile public.profiles;
+  created_message public.private_messages;
+begin
+  if auth.uid() is null then
+    raise exception '请先登录。';
+  end if;
+
+  select * into sender_profile from public.profiles where id = auth.uid();
+  if sender_profile.id is null then
+    raise exception '用户资料不存在，请重新登录。';
+  end if;
+  if sender_profile.blocked then
+    raise exception '你已被限制发送私信。';
+  end if;
+  if p_group_id is null and p_receiver_id is null then
+    raise exception '请选择聊天对象。';
+  end if;
+  if nullif(trim(coalesce(p_body, '')), '') is null
+    and p_shared_post_id is null
+    and p_shared_profile_id is null
+    and p_game_invite is null then
+    raise exception '消息内容不能为空。';
+  end if;
+
+  insert into public.private_messages (
+    sender_id,
+    receiver_id,
+    group_id,
+    body,
+    shared_post_id,
+    shared_profile_id,
+    game_invite
+  )
+  values (
+    sender_profile.id,
+    case when p_group_id is null then p_receiver_id else null end,
+    p_group_id,
+    coalesce(p_body, ''),
+    p_shared_post_id,
+    p_shared_profile_id,
+    p_game_invite
+  )
+  returning * into created_message;
+
+  return created_message;
+end;
+$$;
+
+create or replace function public.owner_set_numeric_id(
+  p_user_id uuid,
+  p_numeric_id text
+)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_profile public.profiles;
+begin
+  if not public.is_owner(auth.uid()) then
+    raise exception '只有群主可以修改数字 ID。';
+  end if;
+  if nullif(trim(p_numeric_id), '') is null then
+    raise exception '数字 ID 不能为空。';
+  end if;
+
+  update public.profiles
+  set numeric_id = trim(p_numeric_id)
+  where id = p_user_id
+  returning * into updated_profile;
+
+  if updated_profile.id is null then
+    raise exception '用户不存在。';
+  end if;
+
+  return updated_profile;
+end;
+$$;
+
+grant execute on function public.create_post(text, text, boolean, text) to authenticated;
+grant execute on function public.send_private_message(uuid, text, uuid, uuid, text, uuid) to authenticated;
+grant execute on function public.owner_set_numeric_id(uuid, text) to authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.posts enable row level security;
 alter table public.comments enable row level security;
