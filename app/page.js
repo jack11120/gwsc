@@ -1,615 +1,203 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Heart, Send, Shield, Crown, Sparkles, MessageCircle, UserPlus, Search } from "lucide-react";
+import { Heart, Send, Shield, Crown, Sparkles, MessageCircle, UserPlus, Search, Home, User, Image as ImageIcon, Share2, Settings, Camera, X, Gamepad2, Users, IdCard } from "lucide-react";
 
-const copy = {
-  zh: {
-    title: "GWSC 表白墙",
-    subtitle: "匿名浏览 · 实名投稿 · 学生专属的轻松小角落",
-    switch: "English",
-    loginTitle: "登录 / 注册",
-    loginSub: "注册时必须填写真实姓名和年级。别人看不到，只有管理者审核时能看到。",
-    email: "邮箱",
-    password: "密码，至少 6 位",
-    displayName: "昵称 / Display name",
-    realName: "真实姓名 / Real name",
-    yearLevel: "年级 / Year level",
-    avatar: "选择头像",
-    privacy: "管理者不会泄露你的真实姓名和年级。投稿审核只用于防止冒充、霸凌和恶意内容。",
-    signUp: "注册",
-    signIn: "登录",
-    signOut: "退出",
-    anonymousBrowse: "匿名浏览",
-    myId: "我的 ID",
-    submitPost: "投稿",
-    placeholder: "写点想说的话……可以表白、感谢、道歉、夸人，但不要攻击别人。",
-    receiver: "想投稿给谁？可不填",
-    useRealNameNotice: "投稿必须绑定真实姓名，但公开显示可以选择匿名。",
-    postAnonymously: "公开匿名显示",
-    sendToReview: "提交审核",
-    pending: "待审核",
-    approved: "已通过",
-    comments: "评论",
-    addComment: "写评论……",
-    commentLimit: "你已经评论 3 条啦。想继续评论？提示：请转账 1r 解锁 1 条评论 😭",
-    adminPanel: "管理后台",
-    ownerPanel: "群主控制台",
-    approve: "通过",
-    delete: "删帖",
-    block: "拉黑用户",
-    unblock: "解除拉黑",
-    deleteComment: "删评论",
-    makeAdmin: "设为管理员",
-    removeAdmin: "取消管理员",
-    transferOwner: "移交群主",
-    cannotKickOwner: "管理员不能踢群主。",
-    friends: "好友",
-    addFriend: "加好友",
-    chat: "私聊",
-    message: "输入私聊消息……",
-    bonus: "加评论次数",
-    roleOwner: "群主",
-    roleAdmin: "管理员",
-    roleUser: "普通用户",
-    realInfoHidden: "实名信息已隐藏，仅管理者可见",
-    feed: "表白动态",
-    search: "搜索昵称 / 内容",
-    empty: "还没有内容，先投一条吧。",
-    loading: "加载中……"
-  },
-  en: {
-    title: "GWSC Confession Wall",
-    subtitle: "Anonymous browsing · Real-name submission · A soft student corner",
-    switch: "中文",
-    loginTitle: "Sign in / Sign up",
-    loginSub: "You must provide your real name and year level when registering. Only managers can see it.",
-    email: "Email",
-    password: "Password, at least 6 characters",
-    displayName: "Display name / 昵称",
-    realName: "Real name / 真实姓名",
-    yearLevel: "Year level / 年级",
-    avatar: "Choose avatar",
-    privacy: "Managers will not reveal your real name or year level. Review is only used to prevent impersonation, bullying and harmful posts.",
-    signUp: "Sign up",
-    signIn: "Sign in",
-    signOut: "Sign out",
-    anonymousBrowse: "Browse anonymously",
-    myId: "My ID",
-    submitPost: "Submit",
-    placeholder: "Write something kind — confession, thanks, apology, praise. No personal attacks.",
-    receiver: "Who is this for? optional",
-    useRealNameNotice: "Submissions must be connected to your real name, but public display can be anonymous.",
-    postAnonymously: "Show publicly as anonymous",
-    sendToReview: "Send for review",
-    pending: "Pending",
-    approved: "Approved",
-    comments: "Comments",
-    addComment: "Write a comment…",
-    commentLimit: "You have already made 3 comments. Want more? Tip: transfer 1r to unlock 1 extra comment 😭",
-    adminPanel: "Admin panel",
-    ownerPanel: "Owner console",
-    approve: "Approve",
-    delete: "Delete post",
-    block: "Block user",
-    unblock: "Unblock",
-    deleteComment: "Delete comment",
-    makeAdmin: "Make admin",
-    removeAdmin: "Remove admin",
-    transferOwner: "Transfer owner",
-    cannotKickOwner: "Admins cannot remove the owner.",
-    friends: "Friends",
-    addFriend: "Add friend",
-    chat: "Private chat",
-    message: "Type a message…",
-    bonus: "Add comment chances",
-    roleOwner: "Owner",
-    roleAdmin: "Admin",
-    roleUser: "User",
-    realInfoHidden: "Real info hidden, visible only to managers",
-    feed: "Confession feed",
-    search: "Search name / content",
-    empty: "No posts yet. Submit the first one.",
-    loading: "Loading…"
-  }
+const T = {
+  title:"GWSC 表白墙", subtitle:"匿名浏览 · 实名投稿 · 学生专属的轻松小角落",
+  wall:"表白墙", chats:"私聊", mine:"我的", email:"邮箱", password:"密码，至少 6 位",
+  loginTitle:"登录 / 注册", loginSub:"注册时必须填写真实姓名和年级。别人看不到，只有群主/管理员审核时能看到。",
+  displayName:"昵称", realName:"真实姓名", yearLevel:"年级", signUp:"注册", signIn:"登录", signOut:"退出",
+  ruleTip:"可以投稿，但内容要经过审核员通过后才会公开。请礼貌发言，不要攻击别人，不要泄露他人隐私。",
+  privacy:"管理者不会泄露你的真实姓名和年级。匿名帖只有群主可查看真实作者，管理员不会显示匿名作者。",
+  submitPost:"投稿", receiver:"想投稿给谁？可不填", placeholder:"写点想说的话……可以表白、感谢、道歉、夸人，但不要攻击别人。",
+  postAnon:"这条公开匿名", addPhoto:"添加照片", sendToReview:"提交审核", pending:"待审核", approved:"已通过",
+  comments:"评论", addComment:"写评论……", commentRule:"每人前 20 条评论免费。超过 20 条后，每 5 条需要给群主转 3 块钱。",
+  commentLimit:"你已经超过免费评论次数啦。之后每 5 条需要给群主转 3 块钱 😭",
+  publicAdmins:"公开管理员", ownerPanel:"群主控制台", adminPanel:"管理后台", approve:"通过", delete:"删帖", block:"拉黑", unblock:"解除拉黑",
+  makeAdmin:"设为管理员", removeAdmin:"取消管理员", transferOwner:"移交群主", bonus:"加评论次数", setUserId:"改用户 ID",
+  friends:"好友", addById:"输入好友数字 ID 添加", addFriend:"加好友", openChat:"打开私聊", message:"输入私聊消息……",
+  onlyId:"只能通过搜索数字 ID 加好友。表白墙匿名帖不能点主页；非匿名帖可以点主页并加好友。",
+  like:"点赞", share:"转发", shareToFriend:"转发给好友", recommendFriend:"推荐好友", shareCard:"分享名片",
+  profile:"个人主页", saveProfile:"保存资料", changeAvatar:"更改头像", changeBg:"更改主页背景", numericId:"数字 ID",
+  roleOwner:"群主", roleAdmin:"管理员", roleUser:"普通用户", realHidden:"实名信息已隐藏，仅管理者可见",
+  createGroup:"拉多人群", groupName:"群聊名称", inviteGomoku:"邀请五子棋", inviteChess:"邀请 Chess", empty:"还没有内容，先投一条吧。"
 };
 
-function roleText(role, t) {
-  if (role === "owner") return t.roleOwner;
-  if (role === "admin") return t.roleAdmin;
-  return t.roleUser;
-}
+function roleText(role){ return role==="owner"?T.roleOwner:role==="admin"?T.roleAdmin:T.roleUser; }
+function Avatar({url, small=false, big=false}){ return <div className={`avatar ${small?"small":""} ${big?"big":""}`}>{url?<img src={url} alt="avatar"/>:null}</div>; }
+function Pill({children, tone=""}){ return <span className={`pill ${tone}`}>{children}</span>; }
 
-function Avatar({ url, small = false }) {
-  return <div className={small ? "avatar small" : "avatar"}>{url ? <img src={url} alt="avatar" /> : null}</div>;
-}
+export default function Page(){
+  const [session,setSession]=useState(null);
+  const [profile,setProfile]=useState(null);
+  const [profiles,setProfiles]=useState([]);
+  const [posts,setPosts]=useState([]);
+  const [comments,setComments]=useState([]);
+  const [friends,setFriends]=useState([]);
+  const [messages,setMessages]=useState([]);
+  const [likes,setLikes]=useState([]);
+  const [groups,setGroups]=useState([]);
+  const [tab,setTab]=useState("wall");
+  const [notice,setNotice]=useState("");
+  const [auth,setAuth]=useState({email:"",password:"",displayName:"",realName:"",year:"Year 11",avatar:null});
+  const [post,setPost]=useState({target:"",body:"",anonymous:true,image:null});
+  const [commentText,setCommentText]=useState({});
+  const [query,setQuery]=useState("");
+  const [friendId,setFriendId]=useState("");
+  const [selectedChat,setSelectedChat]=useState("");
+  const [chatOpen,setChatOpen]=useState(false);
+  const [sharePost,setSharePost]=useState(null);
+  const [viewProfile,setViewProfile]=useState(null);
+  const [groupName,setGroupName]=useState("");
+  const [edit,setEdit]=useState({displayName:"",avatar:null,bg:null});
+  const chatRef=useRef(null);
 
-function Pill({ children, tone = "" }) {
-  return <span className={`pill ${tone}`}>{children}</span>;
-}
+  const isOwner=profile?.role==="owner";
+  const isManager=profile?.role==="owner"||profile?.role==="admin";
 
-export default function Page() {
-  const [lang, setLang] = useState("zh");
-  const t = copy[lang];
+  useEffect(()=>{
+    supabase.auth.getSession().then(({data})=>{ setSession(data.session); if(data.session) boot(data.session.user.id); });
+    const {data:sub}=supabase.auth.onAuthStateChange((_e,s)=>{ setSession(s); if(s) boot(s.user.id); else setProfile(null); });
+    return()=>sub.subscription.unsubscribe();
+  },[]);
 
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [allProfiles, setAllProfiles] = useState([]);
-  const [posts, setPosts] = useState([]);
-  const [comments, setComments] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [friends, setFriends] = useState([]);
-
-  const [authForm, setAuthForm] = useState({ email: "", password: "", displayName: "", realName: "", year: "Year 11", avatarFile: null });
-  const [postForm, setPostForm] = useState({ target: "", body: "", anonymous: true });
-  const [commentText, setCommentText] = useState({});
-  const [query, setQuery] = useState("");
-  const [notice, setNotice] = useState("");
-  const [browseAnon, setBrowseAnon] = useState(false);
-  const [selectedChat, setSelectedChat] = useState("");
-
-  const isManager = profile?.role === "owner" || profile?.role === "admin";
-  const isOwner = profile?.role === "owner";
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) bootstrap(data.session.user.id);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      if (newSession) bootstrap(newSession.user.id);
-      else {
-        setProfile(null);
-        setPosts([]);
-        setAllProfiles([]);
-      }
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!session) return;
-
-    const channel = supabase
-      .channel("gwsc-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => loadPosts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => loadComments())
-      .on("postgres_changes", { event: "*", schema: "public", table: "private_messages" }, () => loadMessages())
+  useEffect(()=>{
+    if(!session) return;
+    const ch=supabase.channel("gwsc-v3")
+      .on("postgres_changes",{event:"*",schema:"public",table:"posts"},loadPosts)
+      .on("postgres_changes",{event:"*",schema:"public",table:"comments"},loadComments)
+      .on("postgres_changes",{event:"*",schema:"public",table:"friendships"},loadFriends)
+      .on("postgres_changes",{event:"*",schema:"public",table:"private_messages"},loadMessages)
+      .on("postgres_changes",{event:"*",schema:"public",table:"post_likes"},loadLikes)
       .subscribe();
+    return()=>supabase.removeChannel(ch);
+  },[session]);
 
-    return () => supabase.removeChannel(channel);
-  }, [session, profile]);
+  async function boot(uid){ await loadProfile(uid); await Promise.all([loadProfiles(),loadPosts(),loadComments(),loadFriends(),loadMessages(),loadLikes(),loadGroups()]); }
+  async function loadProfile(uid=session?.user?.id){ if(!uid)return; const {data}=await supabase.from("profiles").select("*").eq("id",uid).single(); if(data){setProfile(data);setEdit({displayName:data.display_name||"",avatar:null,bg:null});}}
+  async function loadProfiles(){ const {data}=await supabase.from("profiles").select("*").order("created_at"); if(data)setProfiles(data); }
+  async function loadPosts(){ const {data}=await supabase.from("posts").select("*").neq("status","deleted").order("created_at",{ascending:false}); if(data)setPosts(data); }
+  async function loadComments(){ const {data}=await supabase.from("comments").select("*").order("created_at"); if(data)setComments(data); }
+  async function loadFriends(){ const {data}=await supabase.from("friendships").select("*"); if(data)setFriends(data); }
+  async function loadMessages(){ const {data}=await supabase.from("private_messages").select("*").order("created_at"); if(data)setMessages(data); }
+  async function loadLikes(){ const {data}=await supabase.from("post_likes").select("*"); if(data)setLikes(data); }
+  async function loadGroups(){ const {data}=await supabase.from("groups").select("*").order("created_at",{ascending:false}); if(data)setGroups(data); }
 
-  async function bootstrap(userId) {
-    await loadProfile(userId);
-    await Promise.all([loadPosts(), loadComments(), loadProfiles(), loadMessages(), loadFriends()]);
-  }
+  async function upload(bucket,file){ if(!file)return null; const path=`${profile?.id||session?.user?.id}/${Date.now()}-${file.name}`; const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:true}); if(error)throw error; return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl; }
+  async function getNextId(){ const {data,error}=await supabase.rpc("next_numeric_id"); return error ? String(Date.now()).slice(-6) : data; }
 
-  async function loadProfile(userId = session?.user?.id) {
-    if (!userId) return;
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (!error) setProfile(data);
-  }
-
-  async function loadProfiles() {
-    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-    if (data) {
-      setAllProfiles(data);
-      if (!selectedChat) {
-        const first = data.find((u) => u.id !== session?.user?.id);
-        if (first) setSelectedChat(first.id);
-      }
-    }
-  }
-
-  async function loadPosts() {
-    const { data } = await supabase.from("posts").select("*").neq("status", "deleted").order("created_at", { ascending: false });
-    if (data) setPosts(data);
-  }
-
-  async function loadComments() {
-    const { data } = await supabase.from("comments").select("*").order("created_at", { ascending: true });
-    if (data) setComments(data);
-  }
-
-  async function loadMessages() {
-    const { data } = await supabase.from("private_messages").select("*").order("created_at", { ascending: true });
-    if (data) setMessages(data);
-  }
-
-  async function loadFriends() {
-    const { data } = await supabase.from("friendships").select("*");
-    if (data) setFriends(data);
-  }
-
-  async function uploadAvatar(userId, file) {
-    if (!file) return null;
-    const ext = file.name.split(".").pop();
-    const path = `${userId}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (error) throw error;
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return data.publicUrl;
-  }
-
-  async function signUp() {
+  async function signUp(){
     setNotice("");
-    if (!authForm.email || !authForm.password || !authForm.displayName || !authForm.realName || !authForm.year) {
-      setNotice(lang === "zh" ? "邮箱、密码、昵称、真实姓名、年级都要填。" : "Email, password, display name, real name and year level are required.");
-      return;
-    }
-
-    const { data, error } = await supabase.auth.signUp({
-      email: authForm.email,
-      password: authForm.password
-    });
-    if (error) {
-      setNotice(error.message);
-      return;
-    }
-
-    const user = data.user;
-    if (!user) {
-      setNotice(lang === "zh" ? "请去邮箱确认注册，然后再登录。" : "Please confirm your email, then sign in.");
-      return;
-    }
-
-    try {
-      const avatarUrl = await uploadAvatar(user.id, authForm.avatarFile);
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: user.id,
-        email: authForm.email,
-        display_name: authForm.displayName,
-        real_name: authForm.realName,
-        year_level: authForm.year,
-        avatar_url: avatarUrl,
-        role: "user"
-      });
-      if (profileError) setNotice(profileError.message);
-      else {
-        setNotice(lang === "zh" ? "注册成功。第一次使用时，请在 Supabase 把你的账号设为 owner。" : "Signed up. For first use, set your account as owner in Supabase.");
-        await bootstrap(user.id);
-      }
-    } catch (err) {
-      setNotice(err.message);
-    }
+    if(!auth.email||!auth.password||!auth.displayName||!auth.realName||!auth.year) return setNotice("信息要填完整。");
+    const {data,error}=await supabase.auth.signUp({email:auth.email,password:auth.password});
+    if(error) return setNotice(error.message);
+    if(!data.user) return setNotice("请先去邮箱确认。");
+    let numeric_id=await getNextId();
+    const avatar_url=auth.avatar?await uploadFileAs(data.user.id,"avatars",auth.avatar):null;
+    const {error:pe}=await supabase.from("profiles").insert({id:data.user.id,email:auth.email,display_name:auth.displayName,real_name:auth.realName,year_level:auth.year,numeric_id,avatar_url,role:"user"});
+    if(pe)setNotice(pe.message); else boot(data.user.id);
   }
+  async function uploadFileAs(uid,bucket,file){ const path=`${uid}/${Date.now()}-${file.name}`; const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:true}); if(error)throw error; return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl; }
+  async function signIn(){ const {error}=await supabase.auth.signInWithPassword({email:auth.email,password:auth.password}); if(error)setNotice(error.message); }
+  async function signOut(){ await supabase.auth.signOut(); }
 
-  async function signIn() {
-    const { error } = await supabase.auth.signInWithPassword({ email: authForm.email, password: authForm.password });
-    if (error) setNotice(error.message);
+  const myFriendIds=useMemo(()=>{ const s=new Set(); friends.forEach(f=>{if(f.user_id===profile?.id)s.add(f.friend_id); if(f.friend_id===profile?.id)s.add(f.user_id);}); return [...s];},[friends,profile]);
+  const friendProfiles=profiles.filter(p=>myFriendIds.includes(p.id));
+  const publicAdmins=profiles.filter(p=>p.role==="owner"||p.role==="admin");
+  const commentCount=comments.filter(c=>c.author_id===profile?.id).length;
+  const free=20+(profile?.extra_comments||0);
+  const payment=Math.max(0,Math.ceil((commentCount-free)/5)*3);
+  const visiblePosts=posts.filter(p=>isManager||p.status==="approved"||p.author_id===profile?.id).filter(p=>`${p.body} ${p.target} ${p.public_author_name}`.toLowerCase().includes(query.toLowerCase()));
+
+  async function submitPost(){
+    if(!post.body.trim()) return;
+    const image_url=post.image?await upload("post-images",post.image):null;
+    const row={author_id:profile.id,target:post.target,body:post.body,anonymous:post.anonymous,status:"pending",image_url};
+    if(!post.anonymous){ row.public_author_name=profile.display_name; row.public_author_avatar=profile.avatar_url; }
+    const {error}=await supabase.from("posts").insert(row);
+    if(error)setNotice(error.message); else {setPost({target:"",body:"",anonymous:true,image:null});setNotice("已提交审核。");loadPosts();}
   }
+  async function approve(id){ await supabase.from("posts").update({status:"approved"}).eq("id",id); loadPosts(); }
+  async function delPost(id){ await supabase.from("posts").update({status:"deleted"}).eq("id",id); loadPosts(); }
+  async function like(p){ const ex=likes.find(l=>l.post_id===p.id&&l.user_id===profile.id); if(ex){await supabase.from("post_likes").delete().eq("id",ex.id); await supabase.from("posts").update({likes:Math.max(0,p.likes-1)}).eq("id",p.id);}else{await supabase.from("post_likes").insert({post_id:p.id,user_id:profile.id}); await supabase.from("posts").update({likes:(p.likes||0)+1}).eq("id",p.id);} loadLikes();loadPosts(); }
+  async function addComment(pid){ const body=(commentText[pid]||"").trim(); if(!body)return; if(commentCount>=free)setNotice(T.commentLimit); const {error}=await supabase.from("comments").insert({post_id:pid,author_id:profile.id,body}); if(error)setNotice(error.message); else {setCommentText({...commentText,[pid]:""});loadComments();}}
+  async function delComment(id){ await supabase.from("comments").delete().eq("id",id); loadComments(); }
 
-  async function signOut() {
-    await supabase.auth.signOut();
+  async function addFriendById(id=friendId){
+    const target=profiles.find(p=>p.numeric_id===id.trim());
+    if(!target||target.id===profile.id) return setNotice("没有找到这个数字 ID。");
+    await supabase.from("friendships").insert({user_id:profile.id,friend_id:target.id});
+    await supabase.from("friendships").insert({user_id:target.id,friend_id:profile.id});
+    setSelectedChat(target.id); setChatOpen(true); setFriendId(""); loadFriends();
   }
-
-  const commentCountByMe = comments.filter((c) => c.author_id === profile?.id).length;
-  const maxComments = 3 + (profile?.extra_comments || 0);
-
-  const visiblePosts = useMemo(() => {
-    return posts
-      .filter((p) => isManager || p.status === "approved" || p.author_id === profile?.id)
-      .filter((p) => `${p.body} ${p.target} ${p.public_author_name}`.toLowerCase().includes(query.toLowerCase()));
-  }, [posts, isManager, query, profile]);
-
-  async function submitPost() {
-    if (!postForm.body.trim() || !profile) return;
-    if (profile.blocked) {
-      setNotice(lang === "zh" ? "你已被拉黑，不能投稿。" : "You are blocked and cannot submit.");
-      return;
-    }
-    const { error } = await supabase.from("posts").insert({
-      author_id: profile.id,
-      target: postForm.target,
-      body: postForm.body,
-      anonymous: postForm.anonymous,
-      status: "pending",
-      public_author_name: profile.display_name,
-      public_author_avatar: profile.avatar_url
-    });
-    if (error) setNotice(error.message);
-    else {
-      setPostForm({ target: "", body: "", anonymous: true });
-      setNotice(lang === "zh" ? "已提交审核。" : "Sent for review.");
-      loadPosts();
-    }
+  async function sendMessage({receiver=selectedChat,body=null,postId=null,profileId=null,game=null,groupId=null}={}){
+    const text=body??chatRef.current?.value?.trim();
+    if(!text&&!postId&&!profileId&&!game)return;
+    await supabase.from("private_messages").insert({sender_id:profile.id,receiver_id:groupId?null:receiver,group_id:groupId||null,body:text||"",shared_post_id:postId,shared_profile_id:profileId,game_invite:game});
+    if(chatRef.current&&!body)chatRef.current.value=""; loadMessages();
   }
+  async function shareToFriend(fid,p){ await sendMessage({receiver:fid,body:"转发了一条表白墙内容",postId:p.id}); await supabase.from("posts").update({share_count:(p.share_count||0)+1}).eq("id",p.id); setSharePost(null); loadPosts(); }
+  async function recommendFriend(toId,friend){ await sendMessage({receiver:toId,body:`推荐好友：${friend.display_name}，数字ID：${friend.numeric_id}`,profileId:friend.id}); }
 
-  async function approvePost(id) {
-    await supabase.from("posts").update({ status: "approved" }).eq("id", id);
-    loadPosts();
+  async function saveProfile(){
+    const avatar_url=edit.avatar?await upload("avatars",edit.avatar):profile.avatar_url;
+    const background_url=edit.bg?await upload("backgrounds",edit.bg):profile.background_url;
+    const {error}=await supabase.from("profiles").update({display_name:edit.displayName,avatar_url,background_url}).eq("id",profile.id);
+    if(error)setNotice(error.message); else {setNotice("资料已保存。"); boot(profile.id);}
   }
+  async function ownerSetNumericId(u,newId){ if(!isOwner)return; await supabase.from("profiles").update({numeric_id:newId}).eq("id",u.id); loadProfiles(); }
+  async function setRole(u,role){ if(!isOwner)return; await supabase.from("profiles").update({role}).eq("id",u.id); loadProfiles(); }
+  async function block(u,b=!u.blocked){ if(u.role==="owner")return setNotice("管理员不能踢群主。"); await supabase.from("profiles").update({blocked:b}).eq("id",u.id); loadProfiles(); }
+  async function bonus(u){ await supabase.from("profiles").update({extra_comments:(u.extra_comments||0)+1}).eq("id",u.id); loadProfiles(); }
+  async function createGroup(){ if(!groupName.trim())return; const {data}=await supabase.from("groups").insert({name:groupName,owner_id:profile.id}).select().single(); if(data){await supabase.from("group_members").insert({group_id:data.id,user_id:profile.id}); setGroupName(""); loadGroups();}}
 
-  async function deletePost(id) {
-    await supabase.from("posts").update({ status: "deleted" }).eq("id", id);
-    loadPosts();
-  }
+  if(!session||!profile) return <main className="loginScreen"><section className="loginBox card pad stack">
+    <div className="between"><div><h1>{T.loginTitle}</h1><p className="sub">{T.loginSub}</p></div></div>
+    <div className="tip">{T.ruleTip}</div>
+    <div className="form2">
+      <input placeholder={T.email} value={auth.email} onChange={e=>setAuth({...auth,email:e.target.value})}/>
+      <input placeholder={T.password} type="password" value={auth.password} onChange={e=>setAuth({...auth,password:e.target.value})}/>
+      <input placeholder={T.displayName} value={auth.displayName} onChange={e=>setAuth({...auth,displayName:e.target.value})}/>
+      <input placeholder={T.realName} value={auth.realName} onChange={e=>setAuth({...auth,realName:e.target.value})}/>
+      <input placeholder={T.yearLevel} value={auth.year} onChange={e=>setAuth({...auth,year:e.target.value})}/>
+      <label className="soft row" style={{cursor:"pointer",justifyContent:"center"}}><Camera size={16}/>{T.changeAvatar}<input type="file" accept="image/*" style={{display:"none"}} onChange={e=>setAuth({...auth,avatar:e.target.files?.[0]})}/></label>
+    </div>
+    <div className="notice"><Shield size={16}/>{T.privacy}</div>{notice&&<p className="error">{notice}</p>}
+    <div className="tabs"><button onClick={signUp}>{T.signUp}</button><button className="secondary" onClick={signIn}>{T.signIn}</button></div>
+  </section></main>;
 
-  async function likePost(post) {
-    await supabase.from("posts").update({ likes: (post.likes || 0) + 1 }).eq("id", post.id);
-    loadPosts();
-  }
+  const selected=profiles.find(p=>p.id===selectedChat);
+  const selectedMessages=messages.filter(m=>(m.sender_id===profile.id&&m.receiver_id===selectedChat)||(m.sender_id===selectedChat&&m.receiver_id===profile.id));
 
-  async function addComment(postId) {
-    const body = (commentText[postId] || "").trim();
-    if (!body) return;
-    if (commentCountByMe >= maxComments) {
-      setNotice(t.commentLimit);
-      return;
-    }
-    const { error } = await supabase.from("comments").insert({ post_id: postId, author_id: profile.id, body });
-    if (error) setNotice(error.message);
-    else {
-      setCommentText({ ...commentText, [postId]: "" });
-      loadComments();
-    }
-  }
-
-  async function deleteComment(id) {
-    await supabase.from("comments").delete().eq("id", id);
-    loadComments();
-  }
-
-  async function blockUser(user, blocked = true) {
-    if (user.role === "owner") {
-      setNotice(t.cannotKickOwner);
-      return;
-    }
-    await supabase.from("profiles").update({ blocked }).eq("id", user.id);
-    loadProfiles();
-  }
-
-  async function makeAdmin(user) {
-    if (!isOwner || user.role === "owner") return;
-    await supabase.from("profiles").update({ role: "admin" }).eq("id", user.id);
-    loadProfiles();
-  }
-
-  async function removeAdmin(user) {
-    if (!isOwner || user.role !== "admin") return;
-    await supabase.from("profiles").update({ role: "user" }).eq("id", user.id);
-    loadProfiles();
-  }
-
-  async function transferOwner(user) {
-    if (!isOwner || user.id === profile.id) return;
-    await supabase.from("profiles").update({ role: "admin" }).eq("id", profile.id);
-    await supabase.from("profiles").update({ role: "owner" }).eq("id", user.id);
-    await bootstrap(profile.id);
-  }
-
-  async function addBonus(user) {
-    await supabase.from("profiles").update({ extra_comments: (user.extra_comments || 0) + 1 }).eq("id", user.id);
-    loadProfiles();
-  }
-
-  async function addFriend(friendId) {
-    await supabase.from("friendships").insert({ user_id: profile.id, friend_id: friendId });
-    loadFriends();
-  }
-
-  async function sendMessage() {
-    const input = document.getElementById("chatInput");
-    const body = input?.value.trim();
-    if (!body || !selectedChat) return;
-    await supabase.from("private_messages").insert({ sender_id: profile.id, receiver_id: selectedChat, body });
-    input.value = "";
-    loadMessages();
-  }
-
-  if (!session || !profile) {
-    return (
-      <main className="loginScreen">
-        <section className="loginBox card pad stack">
-          <div className="between">
-            <div>
-              <h1>{t.loginTitle}</h1>
-              <p className="sub">{t.loginSub}</p>
-            </div>
-            <button onClick={() => setLang(lang === "zh" ? "en" : "zh")}>{t.switch}</button>
-          </div>
-
-          <div className="form2">
-            <input placeholder={t.email} value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} />
-            <input placeholder={t.password} type="password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} />
-            <input placeholder={t.displayName} value={authForm.displayName} onChange={(e) => setAuthForm({ ...authForm, displayName: e.target.value })} />
-            <input placeholder={t.realName} value={authForm.realName} onChange={(e) => setAuthForm({ ...authForm, realName: e.target.value })} />
-            <input placeholder={t.yearLevel} value={authForm.year} onChange={(e) => setAuthForm({ ...authForm, year: e.target.value })} />
-            <label className="soft row" style={{ cursor: "pointer", justifyContent: "center" }}>
-              {t.avatar}
-              <input style={{ display: "none" }} type="file" accept="image/*" onChange={(e) => setAuthForm({ ...authForm, avatarFile: e.target.files?.[0] || null })} />
-            </label>
-          </div>
-
-          <div className="notice"><Shield size={16} /> {t.privacy}</div>
-          {notice && <p className="error">{notice}</p>}
-
-          <div className="tabs">
-            <button onClick={signUp}>{t.signUp}</button>
-            <button className="secondary" onClick={signIn}>{t.signIn}</button>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  const chatUsers = allProfiles.filter((u) => u.id !== profile.id);
-  const selectedUser = allProfiles.find((u) => u.id === selectedChat);
-
-  return (
-    <>
-      <header>
-        <div className="topbar">
-          <div className="brand">
-            <div className="logo"><Sparkles /></div>
-            <div>
-              <h1>{t.title}</h1>
-              <p className="sub">{t.subtitle}</p>
-            </div>
-          </div>
-          <div className="tabs">
-            <button className="secondary" onClick={() => setBrowseAnon(!browseAnon)}>{t.anonymousBrowse}</button>
-            <button onClick={() => setLang(lang === "zh" ? "en" : "zh")}>{t.switch}</button>
-            <button className="secondary" onClick={signOut}>{t.signOut}</button>
-          </div>
-        </div>
-      </header>
-
-      <main className="wrap grid">
-        <aside className="left stack">
-          <section className="card pad stack">
-            <div className="row">
-              <Avatar url={browseAnon ? null : profile.avatar_url} />
-              <div>
-                <h3>{browseAnon ? "Anonymous" : profile.display_name}</h3>
-                <p className="mini">{t.myId}: {browseAnon ? "Hidden" : profile.id.slice(0, 8)}</p>
-              </div>
-            </div>
-            <div className="tabs">
-              <Pill tone={profile.role === "owner" ? "yellow" : profile.role === "admin" ? "green" : ""}>{roleText(profile.role, t)}</Pill>
-              <Pill tone="pink">{commentCountByMe}/{maxComments} {t.comments}</Pill>
-            </div>
-            <div className="notice"><Shield size={16} /> {t.privacy}</div>
-          </section>
-
-          <section className="card pad stack">
-            <h2><UserPlus size={20} /> {t.friends}</h2>
-            {chatUsers.map((u) => (
-              <div className="friend between" key={u.id}>
-                <div className="row">
-                  <Avatar url={u.avatar_url} small />
-                  <div><b>{u.display_name}</b><div className="mini">{roleText(u.role, t)}</div></div>
-                </div>
-                <div className="tabs">
-                  <button className="secondary" onClick={() => addFriend(u.id)}>{t.addFriend}</button>
-                  <button onClick={() => setSelectedChat(u.id)}>{t.chat}</button>
-                </div>
-              </div>
-            ))}
-          </section>
+  return <>
+    <header><div className="topbar"><div className="brand"><div className="logo"><Sparkles/></div><div><h1>{T.title}</h1><p className="sub">{T.subtitle}</p></div></div><div className="tabs"><button className="secondary" onClick={signOut}>{T.signOut}</button></div></div></header>
+    <main className="wrap">
+      {tab==="wall"&&<div className="grid">
+        <aside className="stack">
+          <section className="card pad stack"><div className="row"><Avatar url={profile.avatar_url}/><div><h3>{profile.display_name}</h3><p className="mini">ID: {profile.numeric_id}</p></div></div><div className="tabs"><Pill tone={profile.role==="owner"?"yellow":profile.role==="admin"?"green":""}>{roleText(profile.role)}</Pill><Pill tone="pink">{commentCount}/{free} 评论</Pill>{payment>0&&<Pill tone="yellow">需转 {payment} 元</Pill>}</div><div className="notice">{T.privacy}</div></section>
+          <section className="card pad stack"><h2>{T.publicAdmins}</h2>{publicAdmins.map(u=><div className="friend between" key={u.id}><div className="row"><Avatar url={u.avatar_url} small/><div><b>{u.display_name}</b><div className="mini">ID: {u.numeric_id}</div></div></div><Pill tone={u.role==="owner"?"yellow":"green"}>{roleText(u.role)}</Pill></div>)}</section>
+          {isManager&&<section className="card pad stack"><h2>{isOwner?T.ownerPanel:T.adminPanel}</h2>{profiles.map(u=><div className="userRow stack" key={u.id}><div className="between"><div className="row"><Avatar url={u.avatar_url} small/><div><b>{u.display_name}</b><div className="mini">{isOwner?`${u.real_name} · ${u.year_level} · `:""}ID: {u.numeric_id}</div></div></div><Pill tone={u.role==="owner"?"yellow":u.role==="admin"?"green":""}>{roleText(u.role)}</Pill></div><div className="tabs">{isOwner&&u.role==="user"&&<button className="secondary" onClick={()=>setRole(u,"admin")}>{T.makeAdmin}</button>}{isOwner&&u.role==="admin"&&<button className="secondary" onClick={()=>setRole(u,"user")}>{T.removeAdmin}</button>}{isOwner&&u.id!==profile.id&&<button className="secondary" onClick={()=>setRole(u,"owner")}>{T.transferOwner}</button>}{isOwner&&<button className="secondary" onClick={()=>{const v=prompt("新数字 ID",u.numeric_id); if(v)ownerSetNumericId(u,v)}}>{T.setUserId}</button>}<button className="secondary" onClick={()=>bonus(u)}>{T.bonus}</button>{u.role!=="owner"&&<button className="secondary" onClick={()=>block(u)}>{u.blocked?T.unblock:T.block}</button>}</div></div>)}</section>}
         </aside>
-
-        <section className="middle stack">
-          <section className="card pad stack">
-            <div className="between">
-              <h2>{t.submitPost}</h2>
-              <Pill tone="yellow">{t.useRealNameNotice}</Pill>
-            </div>
-            <input placeholder={t.receiver} value={postForm.target} onChange={(e) => setPostForm({ ...postForm, target: e.target.value })} />
-            <textarea placeholder={t.placeholder} value={postForm.body} onChange={(e) => setPostForm({ ...postForm, body: e.target.value })} />
-            <div className="between">
-              <label className="row"><input style={{ width: "auto" }} type="checkbox" checked={postForm.anonymous} onChange={(e) => setPostForm({ ...postForm, anonymous: e.target.checked })} /> {t.postAnonymously}</label>
-              <button onClick={submitPost}><Send size={16} /> {t.sendToReview}</button>
-            </div>
-            {notice && <div className="soft error">{notice}</div>}
-          </section>
-
-          <div className="between">
-            <h2>{t.feed}</h2>
-            <div className="search"><Search size={16} /><input placeholder={t.search} value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-          </div>
-
-          {visiblePosts.length === 0 ? <div className="card empty">{t.empty}</div> : visiblePosts.map((post) => {
-            const author = allProfiles.find((u) => u.id === post.author_id);
-            const postComments = comments.filter((c) => c.post_id === post.id);
-            return (
-              <article className="card" key={post.id}>
-                <div className="postHead">
-                  <div className="between">
-                    <div className="row">
-                      <Avatar url={post.anonymous ? null : post.public_author_avatar} />
-                      <div>
-                        <div className="row" style={{ flexWrap: "wrap" }}>
-                          <b>{post.anonymous ? "Anonymous" : post.public_author_name}</b>
-                          <Pill tone={post.status === "approved" ? "green" : "yellow"}>{post.status === "approved" ? t.approved : t.pending}</Pill>
-                          {post.target && <Pill>to: {post.target}</Pill>}
-                        </div>
-                        <div className="mini">{new Date(post.created_at).toLocaleString()} · {t.realInfoHidden}</div>
-                      </div>
-                    </div>
-                    <span className="muted">•••</span>
-                  </div>
-                  <div className="postBody">{post.body}</div>
-                  <div className="tabs" style={{ marginTop: 15 }}>
-                    <button className="secondary" onClick={() => likePost(post)}><Heart size={16} /> {post.likes}</button>
-                    <Pill><MessageCircle size={14} /> {postComments.length} {t.comments}</Pill>
-                  </div>
-                </div>
-
-                <div className="pad stack">
-                  {postComments.map((c) => {
-                    const cu = allProfiles.find((u) => u.id === c.author_id);
-                    return (
-                      <div className="comment" key={c.id}>
-                        <div className="row" style={{ alignItems: "flex-start" }}>
-                          <Avatar url={cu?.avatar_url} small />
-                          <div><b>{cu?.display_name || "User"}</b><div>{c.body}</div></div>
-                        </div>
-                        {isManager && <button className="secondary" onClick={() => deleteComment(c.id)}>🗑️</button>}
-                      </div>
-                    );
-                  })}
-                  <div className="commentForm">
-                    <input placeholder={t.addComment} value={commentText[post.id] || ""} onChange={(e) => setCommentText({ ...commentText, [post.id]: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") addComment(post.id); }} />
-                    <button onClick={() => addComment(post.id)}>➤</button>
-                  </div>
-                  {isManager && (
-                    <div className="adminStrip">
-                      {post.status === "pending" && <button className="good" onClick={() => approvePost(post.id)}>✓ {t.approve}</button>}
-                      <button className="danger" onClick={() => deletePost(post.id)}>🗑️ {t.delete}</button>
-                      {author && <button className="warn" onClick={() => blockUser(author, true)}>🚫 {t.block}</button>}
-                      {author && <span className="real">Real: {author.real_name} · {author.year_level}</span>}
-                    </div>
-                  )}
-                </div>
-              </article>
-            );
-          })}
+        <section className="stack">
+          <section className="card pad stack"><div className="tip">{T.ruleTip}</div><div className="between"><h2>{T.submitPost}</h2><Pill tone="yellow">{T.commentRule}</Pill></div><input placeholder={T.receiver} value={post.target} onChange={e=>setPost({...post,target:e.target.value})}/><textarea placeholder={T.placeholder} value={post.body} onChange={e=>setPost({...post,body:e.target.value})}/><div className="between"><label className="row"><input style={{width:"auto"}} type="checkbox" checked={post.anonymous} onChange={e=>setPost({...post,anonymous:e.target.checked})}/>{T.postAnon}</label><label className="soft row" style={{cursor:"pointer"}}><ImageIcon size={16}/>{T.addPhoto}<input style={{display:"none"}} type="file" accept="image/*" onChange={e=>setPost({...post,image:e.target.files?.[0]})}/></label><button onClick={submitPost}><Send size={16}/>{T.sendToReview}</button></div>{notice&&<div className="soft error">{notice}</div>}</section>
+          <div className="between"><h2>表白动态</h2><div className="search"><Search size={16}/><input placeholder="搜索内容" value={query} onChange={e=>setQuery(e.target.value)}/></div></div>
+          {visiblePosts.length===0?<div className="card empty">{T.empty}</div>:visiblePosts.map(p=>{const author=profiles.find(u=>u.id===p.author_id);const pcs=comments.filter(c=>c.post_id===p.id);const liked=likes.some(l=>l.post_id===p.id&&l.user_id===profile.id);return <article className="card" key={p.id}><div className="postHead"><div className="between"><div className="row"><Avatar url={p.anonymous?null:p.public_author_avatar}/><div><div className="row" style={{flexWrap:"wrap"}}>{p.anonymous?<b>Anonymous</b>:<b className="clickable" onClick={()=>setViewProfile(author)}>{p.public_author_name}</b>}<Pill tone={p.status==="approved"?"green":"yellow"}>{p.status==="approved"?T.approved:T.pending}</Pill>{p.target&&<Pill>to: {p.target}</Pill>}</div><div className="mini">{new Date(p.created_at).toLocaleString()} · {T.realHidden}</div></div></div></div><div className="postBody">{p.body}</div>{p.image_url&&<img className="postImage" src={p.image_url}/>}<div className="tabs" style={{marginTop:15}}><button className={liked?"":"secondary"} onClick={()=>like(p)}><Heart size={16}/>{T.like} {p.likes}</button><button className="secondary" onClick={()=>setSharePost(p)}><Share2 size={16}/>{T.share} {p.share_count||0}</button><Pill><MessageCircle size={14}/>{pcs.length} 评论</Pill></div></div><div className="pad stack">{pcs.map(c=>{const cu=profiles.find(u=>u.id===c.author_id);return <div className="comment" key={c.id}><div className="row" style={{alignItems:"flex-start"}}><Avatar url={cu?.avatar_url} small/><div><b>{cu?.display_name}</b><div>{c.body}</div></div></div>{isManager&&<button className="secondary" onClick={()=>delComment(c.id)}>🗑️</button>}</div>})}<div className="commentForm"><input placeholder={T.addComment} value={commentText[p.id]||""} onChange={e=>setCommentText({...commentText,[p.id]:e.target.value})}/><button onClick={()=>addComment(p.id)}>➤</button></div>{isManager&&<div className="adminStrip">{p.status==="pending"&&<button className="good" onClick={()=>approve(p.id)}>✓ {T.approve}</button>}<button className="danger" onClick={()=>delPost(p.id)}>{T.delete}</button>{!p.anonymous&&author&&<button className="warn" onClick={()=>block(author)}>{T.block}</button>}{isOwner&&p.anonymous&&author&&<span className="real">匿名作者：{author.real_name} · {author.year_level}</span>}{isOwner&&!p.anonymous&&author&&<span className="real">Real: {author.real_name} · {author.year_level}</span>}</div>}</div></article>})}
         </section>
+      </div>}
 
-        <aside className="right stack">
-          {isManager && (
-            <section className="card pad stack">
-              <h2>{isOwner ? <Crown size={20} /> : <Shield size={20} />} {isOwner ? t.ownerPanel : t.adminPanel}</h2>
-              {allProfiles.map((u) => (
-                <div className="userRow stack" key={u.id} style={{ gap: 10 }}>
-                  <div className="between">
-                    <div className="row"><Avatar url={u.avatar_url} small /><div><b>{u.display_name}</b><div className="mini">{u.real_name} · {u.year_level}</div></div></div>
-                    <Pill tone={u.role === "owner" ? "yellow" : u.role === "admin" ? "green" : ""}>{roleText(u.role, t)}</Pill>
-                  </div>
-                  <div className="tabs">
-                    {isOwner && u.role === "user" && <button className="secondary" onClick={() => makeAdmin(u)}>{t.makeAdmin}</button>}
-                    {isOwner && u.role === "admin" && <button className="secondary" onClick={() => removeAdmin(u)}>{t.removeAdmin}</button>}
-                    {isOwner && u.id !== profile.id && <button className="secondary" onClick={() => transferOwner(u)}>{t.transferOwner}</button>}
-                    <button className="secondary" onClick={() => addBonus(u)}>🎁 {t.bonus}</button>
-                    {u.role !== "owner" && <button className="secondary" onClick={() => blockUser(u, !u.blocked)}>{u.blocked ? t.unblock : t.block}</button>}
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
+      {tab==="chats"&&<section className="stack"><div className="card pad stack"><div className="tip">{T.onlyId}</div><div className="between"><h2>{T.chats}</h2><div className="row" style={{maxWidth:520,flex:1}}><input placeholder={T.addById} value={friendId} onChange={e=>setFriendId(e.target.value.replace(/\D/g,""))}/><button onClick={()=>addFriendById()}><UserPlus size={16}/>{T.addFriend}</button></div></div><div className="row"><input placeholder={T.groupName} value={groupName} onChange={e=>setGroupName(e.target.value)}/><button onClick={createGroup}><Users size={16}/>{T.createGroup}</button></div>{notice&&<p className="error">{notice}</p>}</div><div className="card pad stack"><h2>{T.friends}</h2>{friendProfiles.map(u=><div className="chatRow between" key={u.id}><div className="row"><Avatar url={u.avatar_url} small/><div><b>{u.display_name}</b><div className="mini">ID: {u.numeric_id} · {roleText(u.role)}</div></div></div><div className="tabs"><button onClick={()=>{setSelectedChat(u.id);setChatOpen(true)}}>{T.openChat}</button><button className="secondary" onClick={()=>sendMessage({receiver:u.id,body:"邀请你玩五子棋",game:"gomoku"})}><Gamepad2 size={16}/>五子棋</button><button className="secondary" onClick={()=>sendMessage({receiver:u.id,body:"邀请你玩 Chess",game:"chess"})}>Chess</button></div></div>)}</div></section>}
 
-          <section className="card pad stack">
-            <h2>{t.chat}</h2>
-            <select value={selectedChat} onChange={(e) => setSelectedChat(e.target.value)}>
-              {chatUsers.map((u) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
-            </select>
-            <div className="chatBox">
-              {messages.filter((m) => (m.sender_id === profile.id && m.receiver_id === selectedChat) || (m.sender_id === selectedChat && m.receiver_id === profile.id)).map((m) => (
-                <div className={`bubble ${m.sender_id === profile.id ? "me" : "them"}`} key={m.id}>{m.body}</div>
-              ))}
-            </div>
-            <div className="commentForm">
-              <input id="chatInput" placeholder={`${t.message}${selectedUser ? " @" + selectedUser.display_name : ""}`} onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }} />
-              <button onClick={sendMessage}>➤</button>
-            </div>
-          </section>
-        </aside>
-      </main>
-    </>
-  );
+      {tab==="mine"&&<section className="profileGrid"><div className="card"><div className="profileHero" style={{backgroundImage:`url(${profile.background_url||""})`}}></div><div className="pad stack"><div className="row"><Avatar url={profile.avatar_url} big/><div><h2>{profile.display_name}</h2><p className="mini">ID: {profile.numeric_id}</p><Pill tone={profile.role==="owner"?"yellow":profile.role==="admin"?"green":""}>{roleText(profile.role)}</Pill></div></div><button onClick={()=>setViewProfile(profile)}><IdCard size={16}/>{T.shareCard}</button><div className="soft">{T.commentRule}<br/><span className="mini">Used: {commentCount}/{free} {payment>0?`需转 ${payment} 元`:""}</span></div></div></div><div className="card pad stack"><h2><Settings size={20}/>{T.mine}</h2><input value={edit.displayName} onChange={e=>setEdit({...edit,displayName:e.target.value})}/><label className="soft row" style={{cursor:"pointer",justifyContent:"center"}}><Camera size={16}/>{T.changeAvatar}<input style={{display:"none"}} type="file" accept="image/*" onChange={e=>setEdit({...edit,avatar:e.target.files?.[0]})}/></label><label className="soft row" style={{cursor:"pointer",justifyContent:"center"}}><ImageIcon size={16}/>{T.changeBg}<input style={{display:"none"}} type="file" accept="image/*" onChange={e=>setEdit({...edit,bg:e.target.files?.[0]})}/></label><button onClick={saveProfile}>{T.saveProfile}</button>{notice&&<p className="error">{notice}</p>}</div></section>}
+    </main>
+
+    <nav className="bottomNav"><button className={tab==="wall"?"active":""} onClick={()=>setTab("wall")}><Home size={16}/>{T.wall}</button><button className={tab==="chats"?"active":""} onClick={()=>setTab("chats")}><MessageCircle size={16}/>{T.chats}</button><button className={tab==="mine"?"active":""} onClick={()=>setTab("mine")}><User size={16}/>{T.mine}</button></nav>
+
+    {chatOpen&&selected&&<div className="modalBg"><div className="modal"><div className="chatWindow"><div className="chatHeader between"><div className="row"><Avatar url={selected.avatar_url} small/><div><b>{selected.display_name}</b><div className="mini" style={{color:"rgba(255,255,255,.7)"}}>ID: {selected.numeric_id}</div></div></div><button className="ghost" style={{color:"white"}} onClick={()=>setChatOpen(false)}><X size={18}/></button></div><div className="chatBox">{selectedMessages.map(m=>{const sp=posts.find(p=>p.id===m.shared_post_id);const su=profiles.find(p=>p.id===m.shared_profile_id);return <div className={`bubble ${m.sender_id===profile.id?"me":"them"}`} key={m.id}><div>{m.body}</div>{m.game_invite&&<div className="sharedCard">🎮 游戏邀请：{m.game_invite==="gomoku"?"五子棋":"Chess"}</div>}{sp&&<div className="sharedCard"><b>{sp.anonymous?"Anonymous":sp.public_author_name}</b><div className="mini">{sp.body.slice(0,90)}...</div>{sp.image_url&&<img src={sp.image_url} style={{width:"100%",borderRadius:12,marginTop:8}}/>}</div>}{su&&<div className="sharedCard"><b>{su.display_name}</b><div className="mini">推荐名片 ID: {su.numeric_id}</div></div>}</div>})}</div><div className="pad commentForm"><input ref={chatRef} placeholder={T.message}/><button onClick={()=>sendMessage()}><Send size={16}/></button></div></div></div></div>}
+
+    {sharePost&&<div className="modalBg"><div className="modal stack"><div className="between"><h2>{T.shareToFriend}</h2><button className="ghost" onClick={()=>setSharePost(null)}><X size={18}/></button></div>{friendProfiles.map(u=><div className="friend between" key={u.id}><div className="row"><Avatar url={u.avatar_url} small/><div><b>{u.display_name}</b><div className="mini">ID: {u.numeric_id}</div></div></div><button onClick={()=>shareToFriend(u.id,sharePost)}><Share2 size={16}/>{T.share}</button></div>)}</div></div>}
+
+    {viewProfile&&<div className="modalBg"><div className="modal stack"><div className="between"><h2>{T.profile}</h2><button className="ghost" onClick={()=>setViewProfile(null)}><X size={18}/></button></div><div className="card"><div className="profileHero" style={{backgroundImage:`url(${viewProfile.background_url||""})`}}></div><div className="pad row"><Avatar url={viewProfile.avatar_url} big/><div><h2>{viewProfile.display_name}</h2><p className="mini">ID: {viewProfile.numeric_id}</p><Pill tone={viewProfile.role==="owner"?"yellow":viewProfile.role==="admin"?"green":""}>{roleText(viewProfile.role)}</Pill></div></div></div><div className="tabs">{viewProfile.id!==profile.id&&<button onClick={()=>addFriendById(viewProfile.numeric_id)}>{T.addFriend}</button>}{friendProfiles.map(f=><button className="secondary" key={f.id} onClick={()=>recommendFriend(f.id,viewProfile)}>{T.recommendFriend}给 {f.display_name}</button>)}</div></div></div>}
+  </>;
 }

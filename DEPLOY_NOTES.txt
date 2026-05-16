@@ -1,0 +1,13 @@
+GWSC 表白墙 V3 部署提醒
+
+1. Supabase SQL Editor 运行 supabase/schema.sql
+2. Vercel 环境变量：
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+3. 注册群主账号后运行：
+update profiles
+set role = 'owner', numeric_id = '111111'
+where email = '你的邮箱@example.com';
+
+4. 如果你已经有旧版数据库，仍然直接运行新版 schema.sql。
