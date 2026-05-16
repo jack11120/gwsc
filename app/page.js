@@ -47,6 +47,8 @@ const initialChess = () => ([
   ["wr","wn","wb","wq","wk","wb","wn","wr"],
 ]);
 const chessIcon = {wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟"};
+function normalizeGomokuBoard(board){ return Array.isArray(board)&&board.length===15&&board.every(row=>Array.isArray(row)&&row.length===15)?board:emptyGomoku(); }
+function normalizeChessBoard(board){ return Array.isArray(board)&&board.length===8&&board.every(row=>Array.isArray(row)&&row.length===8)?board:initialChess(); }
 
 function checkGomokuWin(board,r,c,player){
   const dirs=[[1,0],[0,1],[1,1],[1,-1]];
@@ -218,7 +220,7 @@ export default function Page(){
   async function playGomoku(r,c){
     const game=activeGame; if(!game||game.status==="finished")return;
     if(game.current_turn && game.current_turn!==profile.id) return setNotice("还没轮到你。");
-    const board=game.board_state?.board || emptyGomoku();
+    const board=normalizeGomokuBoard(game.board_state?.board);
     if(board[r][c]) return;
     const player=game.inviter_id===profile.id?"black":"white";
     const next=board.map(row=>[...row]); next[r][c]=player;
@@ -228,7 +230,7 @@ export default function Page(){
   }
   async function playChess(r,c){
     const game=activeGame; if(!game||game.status==="finished")return;
-    const board=game.board_state?.board || initialChess();
+    const board=normalizeChessBoard(game.board_state?.board);
     const myColor=game.inviter_id===profile.id?"w":"b";
     const turnColor=game.current_turn===game.inviter_id?"w":"b";
     if(game.current_turn && game.current_turn!==profile.id) return setNotice("还没轮到你。");
@@ -308,12 +310,12 @@ function GameBoard({game,profile,profiles,playGomoku,playChess,selectedChess}){
 }
 
 function GomokuBoard({game,play}){
-  const board=game.board_state?.board || emptyGomoku();
+  const board=normalizeGomokuBoard(game.board_state?.board);
   return <div className="gomoku">{board.map((row,r)=>row.map((cell,c)=><div className="gCell" key={`${r}-${c}`} onClick={()=>play(r,c)}>{cell&&<div className={`stone ${cell}`}/>}</div>))}</div>
 }
 
 function ChessBoard({game,play,selected}){
-  const board=game.board_state?.board || initialChess();
+  const board=normalizeChessBoard(game.board_state?.board);
   return <div className="chess">{board.map((row,r)=>row.map((cell,c)=>{
     const sel=selected&&selected[0]===r&&selected[1]===c;
     return <div className={`cCell ${(r+c)%2===0?"light":"dark"} ${sel?"selected":""}`} key={`${r}-${c}`} onClick={()=>play(r,c)}>{cell?chessIcon[cell]:""}</div>

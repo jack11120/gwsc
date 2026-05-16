@@ -440,7 +440,7 @@ set search_path = public
 as $$
 declare
   created_game public.game_sessions;
-  initial_board jsonb;
+  initial_board jsonb := '{}'::jsonb;
 begin
   if auth.uid() is null then
     raise exception '请先登录。';
@@ -453,11 +453,6 @@ begin
   if p_receiver_id is null or p_receiver_id = auth.uid() then
     raise exception '请选择有效的好友。';
   end if;
-
-  initial_board := case
-    when p_game_type = 'gomoku' then jsonb_build_object('board', '[]'::jsonb)
-    else jsonb_build_object('board', '[]'::jsonb)
-  end;
 
   insert into public.game_sessions (game_type, inviter_id, opponent_id, board_state, current_turn)
   values (p_game_type, auth.uid(), p_receiver_id, initial_board, auth.uid())
