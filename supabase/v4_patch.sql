@@ -149,9 +149,6 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  free_count int;
-  used_count int;
 begin
   if auth.uid() is null then
     raise exception '请先登录。';
@@ -168,23 +165,9 @@ begin
   insert into public.comments (post_id, author_id, body)
   values (p_post_id, auth.uid(), trim(p_body));
 
-  select 20 + coalesce(extra_comments, 0)
-  into free_count
-  from public.profiles
-  where id = auth.uid();
-
-  select count(*)
-  into used_count
-  from public.comments
-  where author_id = auth.uid();
-
   return jsonb_build_object(
     'ok', true,
-    'message',
-    case
-      when used_count > free_count then '评论成功。你已超过免费评论次数，之后每 5 条需要给群主转 3 块钱。'
-      else '评论成功。'
-    end
+    'message', '评论成功。'
   );
 end;
 $$;
@@ -411,27 +394,7 @@ begin
 end;
 $$;
 
-create or replace function public.owner_add_comment_bonus(p_user_id uuid, p_amount int)
-returns public.profiles
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  updated_profile public.profiles;
-begin
-  if not public.is_owner(auth.uid()) then
-    raise exception '只有群主可以增加评论次数。';
-  end if;
-
-  update public.profiles
-  set extra_comments = greatest(0, extra_comments + coalesce(p_amount, 0))
-  where id = p_user_id
-  returning * into updated_profile;
-
-  return updated_profile;
-end;
-$$;
+drop function if exists public.owner_add_comment_bonus(uuid, int);
 
 create or replace function public.create_group_chat(p_name text, p_member_ids uuid[])
 returns public.groups
@@ -558,7 +521,6 @@ grant execute on function public.add_friend_by_numeric_id(text) to authenticated
 grant execute on function public.send_private_message(uuid, text, uuid, uuid, text, uuid) to authenticated;
 grant execute on function public.owner_set_role(uuid, text) to authenticated;
 grant execute on function public.manager_block_user(uuid, boolean) to authenticated;
-grant execute on function public.owner_add_comment_bonus(uuid, int) to authenticated;
 grant execute on function public.create_group_chat(text, uuid[]) to authenticated;
 grant execute on function public.invite_game(uuid, text) to authenticated;
 grant execute on function public.create_game_move(uuid, jsonb) to authenticated;
