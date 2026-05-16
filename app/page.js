@@ -91,13 +91,20 @@ export default function Page(){
   async function signUp(){
     setNotice("");
     if(!auth.email||!auth.password||!auth.displayName||!auth.realName||!auth.year) return setNotice("信息要填完整。");
-    const {data,error}=await supabase.auth.signUp({email:auth.email,password:auth.password});
+    const {data,error}=await supabase.auth.signUp({
+      email:auth.email,
+      password:auth.password,
+      options:{data:{display_name:auth.displayName,real_name:auth.realName,year_level:auth.year}}
+    });
     if(error) return setNotice(error.message);
     if(!data.user) return setNotice("请先去邮箱确认。");
-    let numeric_id=await getNextId();
+    if(!data.session) return setNotice("注册成功，请先去邮箱确认，然后回来登录。");
     const avatar_url=auth.avatar?await uploadFileAs(data.user.id,"avatars",auth.avatar):null;
-    const {error:pe}=await supabase.from("profiles").insert({id:data.user.id,email:auth.email,display_name:auth.displayName,real_name:auth.realName,year_level:auth.year,numeric_id,avatar_url,role:"user"});
-    if(pe)setNotice(pe.message); else boot(data.user.id);
+    if(avatar_url){
+      const {error:pe}=await supabase.from("profiles").update({avatar_url}).eq("id",data.user.id);
+      if(pe)return setNotice(pe.message);
+    }
+    boot(data.user.id);
   }
   async function uploadFileAs(uid,bucket,file){ const path=`${uid}/${Date.now()}-${file.name}`; const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:true}); if(error)throw error; return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl; }
   async function signIn(){ const {error}=await supabase.auth.signInWithPassword({email:auth.email,password:auth.password}); if(error)setNotice(error.message); }
