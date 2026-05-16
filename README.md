@@ -1,50 +1,55 @@
-# GWSC 表白墙 V3
+# GWSC 表白墙 V4 前端
 
-## 这版新增/优化
-- 底部三个界面：表白墙 / 私聊 / 我的
-- 可以更改头像、昵称、个人主页背景
-- 每条表白墙投稿可以放照片
-- 投稿提示：需要审核、礼貌发言
-- 评论次数改成 20 次；超过 20 次后，每 5 条提醒给群主转 3 块钱
-- 管理员公开展示，所有人都能看到谁是管理员
-- 数字 ID 不可重复
-- 群主数字 ID 固定为 111111
-- 数字 ID 按注册顺序生成：前 10 个是 6 位数，每多 20 人增加 1 位
-- 群主可以更改用户数字 ID
-- 只能通过数字 ID 加好友
-- 表白墙匿名帖不能点开主页；非匿名帖可以点开主页并加好友
-- 每次发帖都可以单独选择匿名；以后关掉匿名，也不会让以前的匿名帖显示身份
-- 只有群主界面会显示匿名帖真实作者；管理员不会显示匿名作者
-- 每个人有个人主页和名片，可以分享给好友
-- 好友可以推荐自己的好友给别人
-- 私聊界面更美观，私聊作为弹窗打开
-- 好友之间可以转发表白墙帖子
-- 可以邀请好友玩五子棋模式 / Chess 模式
-- 可以创建多人群聊
+这是基于 V3.1 安全版 SQL 的前端升级包。
+
+## V4 新增
+- 真正可打开的五子棋棋盘
+- 简化 Chess 棋盘
+- 私聊里邀请好友玩五子棋 / Chess
+- 游戏记录写入 Supabase：
+  - game_sessions
+  - game_moves
+- 游戏弹窗
+- 游戏列表
+- 五子棋胜负判断
+- Chess 回合制移动（简化版，不含完整将军/将死规则）
 
 ## 使用方法
-1. 在 Supabase 创建项目
-2. 打开 SQL Editor，运行 `supabase/schema.sql`
-3. 上传到 GitHub
-4. Vercel 导入项目
-5. 设置环境变量：
+1. 先在 Supabase 运行 `gwsc_v3_1_secure_rebuild.sql`
+2. 把这个 V4 项目上传到原 GitHub 仓库，覆盖旧代码
+3. Vercel 自动重新部署
+4. 确认环境变量仍然存在：
    - NEXT_PUBLIC_SUPABASE_URL
    - NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-## 设置群主
-先注册你的账号，然后在 Supabase SQL Editor 运行：
+## 重要
+如果你之前的前端还在直接 insert posts/comments/messages，V4 已经改成优先使用 V3.1 的 RPC：
+- create_post
+- create_comment
+- toggle_like
+- share_post
+- add_friend_by_numeric_id
+- send_private_message
+- create_group_chat
+- invite_game
+- create_game_move
 
-```sql
-update profiles
-set role = 'owner', numeric_id = '111111'
-where email = '你的邮箱@example.com';
+Chess 是简化版，只能移动棋子和轮流走，不含完整国际象棋规则。
+
+
+## V4 额外 SQL Patch
+
+请在 Supabase SQL Editor 里运行：
+
+```text
+supabase/v4_patch.sql
 ```
 
-## 重要提醒
-这个是可部署 MVP，不是大公司级别安全系统。因为涉及学生实名、头像、私聊，真正公开前建议继续加：
-- 举报系统
-- 敏感词过滤
-- 管理员操作记录
-- 屏蔽用户
-- 学校邮箱限制
-- 隐私条款
+这个 patch 会：
+- 收紧 owner/admin posts view
+- 确保游戏表 realtime 可用
+
+顺序：
+1. 运行 V3.1 安全版 SQL
+2. 运行 `supabase/v4_patch.sql`
+3. 部署 V4 前端

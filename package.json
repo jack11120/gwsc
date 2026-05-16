@@ -1,6 +1,6 @@
 {
-  "name": "gwsc-confession-wall-v3",
-  "version": "3.0.0",
+  "name": "gwsc-confession-wall-v4",
+  "version": "4.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
