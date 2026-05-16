@@ -72,6 +72,15 @@ grant select on public.public_posts_view to authenticated;
 grant select on public.admin_posts_view to authenticated;
 grant select on public.owner_posts_view to authenticated;
 
+grant select, insert, update, delete on public.posts to authenticated;
+
+drop policy if exists "posts_update_manager_or_like" on public.posts;
+drop policy if exists "posts_update_manager" on public.posts;
+create policy "posts_update_manager" on public.posts
+for update
+using (public.is_manager(auth.uid()))
+with check (public.is_manager(auth.uid()));
+
 -- ---------------------------------------------------------------------------
 -- Game tables used by the V4 frontend
 -- ---------------------------------------------------------------------------
@@ -221,36 +230,6 @@ begin
   where id = p_post_id;
 
   return jsonb_build_object('ok', true);
-end;
-$$;
-
-create or replace function public.moderate_post(p_post_id uuid, p_status text)
-returns public.posts
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  updated_post public.posts;
-begin
-  if not public.is_manager(auth.uid()) then
-    raise exception '只有管理员可以审核帖子。';
-  end if;
-
-  if p_status not in ('approved','deleted') then
-    raise exception '帖子状态无效。';
-  end if;
-
-  update public.posts
-  set status = p_status
-  where id = p_post_id
-  returning * into updated_post;
-
-  if updated_post.id is null then
-    raise exception '帖子不存在。';
-  end if;
-
-  return updated_post;
 end;
 $$;
 
@@ -542,7 +521,6 @@ $$;
 grant execute on function public.create_comment(uuid, text) to authenticated;
 grant execute on function public.toggle_like(uuid) to authenticated;
 grant execute on function public.share_post(uuid) to authenticated;
-grant execute on function public.moderate_post(uuid, text) to authenticated;
 grant execute on function public.add_friend_by_numeric_id(text) to authenticated;
 grant execute on function public.send_private_message(uuid, text, uuid, uuid, text, uuid) to authenticated;
 grant execute on function public.owner_set_role(uuid, text) to authenticated;
