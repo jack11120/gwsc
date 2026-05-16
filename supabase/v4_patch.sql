@@ -224,6 +224,36 @@ begin
 end;
 $$;
 
+create or replace function public.moderate_post(p_post_id uuid, p_status text)
+returns public.posts
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_post public.posts;
+begin
+  if not public.is_manager(auth.uid()) then
+    raise exception '只有管理员可以审核帖子。';
+  end if;
+
+  if p_status not in ('approved','deleted') then
+    raise exception '帖子状态无效。';
+  end if;
+
+  update public.posts
+  set status = p_status
+  where id = p_post_id
+  returning * into updated_post;
+
+  if updated_post.id is null then
+    raise exception '帖子不存在。';
+  end if;
+
+  return updated_post;
+end;
+$$;
+
 create or replace function public.add_friend_by_numeric_id(p_numeric_id text)
 returns public.public_profiles_view
 language plpgsql
@@ -512,6 +542,7 @@ $$;
 grant execute on function public.create_comment(uuid, text) to authenticated;
 grant execute on function public.toggle_like(uuid) to authenticated;
 grant execute on function public.share_post(uuid) to authenticated;
+grant execute on function public.moderate_post(uuid, text) to authenticated;
 grant execute on function public.add_friend_by_numeric_id(text) to authenticated;
 grant execute on function public.send_private_message(uuid, text, uuid, uuid, text, uuid) to authenticated;
 grant execute on function public.owner_set_role(uuid, text) to authenticated;

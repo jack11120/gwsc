@@ -176,8 +176,9 @@ export default function Page(){
     const {error}=await supabase.rpc("create_post",{p_target:post.target,p_body:post.body,p_anonymous:post.anonymous,p_image_url:image_url});
     if(error)setNotice(error.message); else {setPost({target:"",body:"",anonymous:true,image:null});setNotice("已提交审核。");loadPosts();}
   }
-  async function approve(p){ const {error}=await supabase.from("posts").update({status:"approved"}).eq("id",p.id); if(error)setNotice(error.message); else loadPosts(); }
-  async function delPost(p){ const {error}=await supabase.from("posts").update({status:"deleted"}).eq("id",p.id); if(error)setNotice(error.message); else loadPosts(); }
+  async function moderatePost(p,status){ const {error}=await supabase.rpc("moderate_post",{p_post_id:p.id,p_status:status}); if(error)setNotice(error.message); else loadPosts(); }
+  async function approve(p){ await moderatePost(p,"approved"); }
+  async function delPost(p){ await moderatePost(p,"deleted"); }
   async function like(p){ const {error}=await supabase.rpc("toggle_like",{p_post_id:p.id}); if(error)setNotice(error.message); else {loadLikes();loadPosts();} }
   async function addComment(pid){ const body=(commentText[pid]||"").trim(); if(!body)return; const {data,error}=await supabase.rpc("create_comment",{p_post_id:pid,p_body:body}); if(error)setNotice(error.message); else {setNotice(data?.message||"评论成功。");setCommentText({...commentText,[pid]:""});loadComments();}}
   async function delComment(id){ await supabase.from("comments").delete().eq("id",id); loadComments(); }
